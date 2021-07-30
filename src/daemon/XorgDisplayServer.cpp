@@ -22,6 +22,7 @@
 
 #include "Configuration.h"
 #include "DaemonApp.h"
+#include "VirtualTerminal.h"
 #include "Display.h"
 #include "SignalHandler.h"
 #include "Seat.h"
@@ -123,6 +124,8 @@ namespace SDDM {
         args << QStringLiteral("-auth") << m_xauth.authPath()
              << QStringLiteral("-noreset")
              << QStringLiteral("-displayfd") << QString::number(pipeFds[1]);
+
+        VirtualTerminal::jumpToVt(displayPtr()->terminalId(), false);
 
         process->setArguments(args);
         qDebug() << "Running:"

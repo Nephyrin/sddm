@@ -19,6 +19,8 @@
 
 #include <QDebug>
 #include <QString>
+#include <QFile>
+#include <QThread>
 
 #include "VirtualTerminal.h"
 
@@ -74,7 +76,7 @@ namespace SDDM {
             bool ok = true;
 
             if (ioctl(fd, VT_GETMODE, &getmodeReply) < 0) {
-                qWarning() << "Failed to query VT mode:" << strerror(errno);
+                qWarning() << "VT Failed to query VT mode:" << strerror(errno);
                 ok = false;
             }
 
@@ -82,7 +84,7 @@ namespace SDDM {
                 goto out;
 
             if (ioctl(fd, KDGETMODE, &kernelDisplayMode) < 0) {
-                qWarning() << "Failed to query kernel display mode:" << strerror(errno);
+                qWarning() << "VT Failed to query kernel display mode:" << strerror(errno);
                 ok = false;
             }
 
@@ -98,8 +100,13 @@ namespace SDDM {
                     qWarning("Failed to set text mode for current VT: %s", strerror(errno));
                     ok = false;
                 }
+                else {
+                    qDebug() << "VT mode forced to text";
+                    modeFixed = true;
+                }
             }
             else {
+                qDebug() << "VT mode handling forced";
                 ok = handleVtSwitches(fd);
                 modeFixed = true;
             }
@@ -145,6 +152,7 @@ out:
                 return vtState.v_active;
             }
 
+            qDebug() << "VT being created" << vt;
             return vt;
         }
 
@@ -185,10 +193,41 @@ out:
             if (!vt_auto)
                 handleVtSwitches(fd);
 
-            if (ioctl(fd, VT_ACTIVATE, vt) < 0)
-                qWarning("Couldn't initiate jump to VT %d: %s", vt, strerror(errno));
-            else if (ioctl(fd, VT_WAITACTIVE, vt) < 0)
-                qWarning("Couldn't finalize jump to VT %d: %s", vt, strerror(errno));
+            //if (ioctl(fd, VT_ACTIVATE, vt) < 0)
+            //  qWarning("Couldn't initiate jump to VT %d: %s", vt, strerror(errno));
+            //else if (ioctl(fd, VT_WAITACTIVE, vt) < 0)
+            //  qWarning("Couldn't finalize jump to VT %d: %s", vt, strerror(errno));
+
+            while (true) {
+              if (ioctl(fd, VT_ACTIVATE, vt) < 0) {
+                if (errno == EINTR) {
+                  qWarning("Activate VT %d: Interrupted, retrying", vt);
+                  continue;
+                }
+                qWarning("Couldn't initiate jump to VT %d: %s", vt,
+                         strerror(errno));
+                break;
+              }
+
+              QThread::msleep(500);
+              vt_stat vtState = { 0 };
+
+              if (ioctl(fd, VT_GETSTATE, &vtState) < 0) {
+                if (errno == EINTR) {
+                  qWarning("GETSTATE while activating VT %d: Interrupted, retrying", vt);
+                  continue;
+                }
+                qWarning("Couldn't get state to verify transition to VT %d: %s", vt, strerror(errno));
+                break;
+              }
+
+              if (vtState.v_active == vt) {
+                qWarning("Switch to VT %d successful", vt);
+                break;
+              } else {
+                qWarning("Switch to VT %d non-responsive after 500ms, retrying", vt);
+              }
+            }
 
             close(activeVtFd);
             if (vtFd != -1)

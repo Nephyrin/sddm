@@ -106,6 +106,7 @@ namespace SDDM {
         }
 
         if (waitForStarted()) {
+            qInfo() << "UserSession jumping to VT";
             int vtNumber = processEnvironment().value(QStringLiteral("XDG_VTNR")).toInt();
             VirtualTerminal::jumpToVt(vtNumber, true);
             return true;

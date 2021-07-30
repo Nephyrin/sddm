@@ -449,7 +449,7 @@ namespace SDDM {
         // we want to avoid greeter from restarting when an authentication
         // error happens (in this case we want to show the message from the
         // greeter
-        if (status != Auth::HELPER_AUTH_ERROR)
+        if (status != Auth::HELPER_AUTH_ERROR || m_auth->autologin())
             stop();
 
         // when the logged in session closes, start the greeter again

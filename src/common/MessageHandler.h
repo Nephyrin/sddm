@@ -63,6 +63,9 @@ namespace SDDM {
         sd_journal_print_with_location(priority, fileBuffer, lineBuffer,
                                        context.function ? context.function : "unknown",
                                        "%s", qPrintable(msg));
+
+        printf("HackDebug: %s\n", qPrintable(msg));
+        fflush(stdout);
     }
 #endif
 
